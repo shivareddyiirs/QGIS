@@ -286,13 +286,11 @@ void QgsDualView::setFilterMode( QgsAttributeTableFilterModel::FilterMode filter
   {
     case QgsAttributeTableFilterModel::ShowVisible:
       disconnect( mFilterModel->mapCanvas(), &QgsMapCanvas::extentsChanged, this, &QgsDualView::extentChanged );
-      disconnect( mFilterModel, &QgsAttributeTableFilterModel::visibleReloaded, this, &QgsDualView::filterChanged );
       break;
 
     case QgsAttributeTableFilterModel::ShowAll:
     case QgsAttributeTableFilterModel::ShowEdited:
     case QgsAttributeTableFilterModel::ShowFilteredList:
-      disconnect( mFilterModel, &QgsAttributeTableFilterModel::featuresFiltered, this, &QgsDualView::filterChanged );
       break;
 
     case QgsAttributeTableFilterModel::ShowSelected:
@@ -325,13 +323,11 @@ void QgsDualView::setFilterMode( QgsAttributeTableFilterModel::FilterMode filter
         QgsRectangle rect = mFilterModel->mapCanvas()->mapSettings().mapToLayerCoordinates( mLayer, mFilterModel->mapCanvas()->extent() );
         r.setFilterRect( rect );
       }
-      connect( mFilterModel, &QgsAttributeTableFilterModel::visibleReloaded, this, &QgsDualView::filterChanged );
       break;
 
     case QgsAttributeTableFilterModel::ShowAll:
     case QgsAttributeTableFilterModel::ShowEdited:
     case QgsAttributeTableFilterModel::ShowFilteredList:
-      connect( mFilterModel, &QgsAttributeTableFilterModel::featuresFiltered, this, &QgsDualView::filterChanged );
       break;
 
     case QgsAttributeTableFilterModel::ShowSelected:
@@ -339,6 +335,14 @@ void QgsDualView::setFilterMode( QgsAttributeTableFilterModel::FilterMode filter
       r.setFilterFids( masterModel()->layer()->selectedFeatureIds() );
       break;
   }
+
+  if ( requiresTableReload )
+  {
+    mMasterModel->setRequest( r );
+    whileBlocking( mLayerCache )->setCacheGeometry( needsGeometry );
+    mMasterModel->loadLayer();
+  }
+
 
   // disable the browsing auto pan/scale if the list only shows visible items
   switch ( filterMode )
@@ -353,16 +357,6 @@ void QgsDualView::setFilterMode( QgsAttributeTableFilterModel::FilterMode filter
     case QgsAttributeTableFilterModel::ShowSelected:
       setBrowsingAutoPanScaleAllowed( true );
       break;
-  }
-
-  if ( requiresTableReload )
-  {
-    //disconnect the connections of the current (old) filtermode before reload
-    mFilterModel->disconnectFilterModeConnections();
-
-    mMasterModel->setRequest( r );
-    whileBlocking( mLayerCache )->setCacheGeometry( needsGeometry );
-    mMasterModel->loadLayer();
   }
 
   //update filter model
